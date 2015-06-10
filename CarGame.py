@@ -3,15 +3,9 @@ import pygame, sys, os
 import math
 from pygame.locals import *
 
-DEBUG = False
-
 # colors:
 LIGHT = {'road': (143, 143, 143), 'grass': (54, 209, 46), 'rumble': (237, 237,237), 'lanemarker': (143, 143, 143)}
 DARK = {'road': (138, 138, 138), 'grass': (51, 184, 44), 'rumble': (240, 81, 103), 'lanemarker': (237, 237,237)}
-
-RUMBLE_RED = (217, 108, 108)
-RUMBLE_WHITE = (255, 255, 255)
-BACKGROUND_COLOR = (125, 28, 163)
 
 # configuration constants
 SCREEN_W = 640
@@ -184,10 +178,11 @@ while True:
         steer = -.0002 * speed
     else: 
         steer = 0
+    
     position += speed
     player_x += steer
     
-    # causes the road to loop
+    # keep road from running out
     while position >= track_length:
         position -= track_length
     while position < 0:
@@ -197,7 +192,5 @@ while True:
     render_road(Window, road_segments, position, player_x)
     pygame.display.flip()
     clock.tick(FPS)
-    #print speed, position, steer, clock.get_fps()
-
 
 
