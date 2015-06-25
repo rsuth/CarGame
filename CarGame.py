@@ -4,8 +4,10 @@ import math
 from pygame.locals import *
 
 # colors:
-LIGHT = {'road': (143, 143, 143), 'grass': (54, 209, 46), 'rumble': (237, 237,237), 'lanemarker': (143, 143, 143)}
-DARK = {'road': (138, 138, 138), 'grass': (51, 184, 44), 'rumble': (240, 81, 103), 'lanemarker': (237, 237,237)}
+LIGHT = {'road': (143, 143, 143), 'grass': (54, 209, 46),
+    'rumble': (237, 237,237), 'lanemarker': (143, 143, 143)}
+DARK = {'road': (138, 138, 138), 'grass': (51, 184, 44),
+    'rumble': (240, 81, 103), 'lanemarker': (237, 237,237)}
 
 # configuration constants
 SCREEN_W = 640
@@ -17,7 +19,7 @@ CAMERA_DEPTH = .8
 SEGMENT_LENGTH = 140
 RUMBLE_LENGTH = 3
 ROAD_WIDTH = 1800
-MAX_SPEED = 180
+MAX_SPEED = 300
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
@@ -37,9 +39,9 @@ def initialize_window(w, h):
 def reset_road():
     segments = []
     for n in xrange(0,500): # 500 is road length, arbitrary
-        segment = {'index': n, 
-                   'p1': {'world':  {'z':n * SEGMENT_LENGTH, 'x':0, 'y': 0 }, 
-                          'camera': {'x': 0, 'y': 0, 'z': 0}, 
+        segment = {'index': n,
+                   'p1': {'world':  {'z':n * SEGMENT_LENGTH, 'x':0, 'y': 0 },
+                          'camera': {'x': 0, 'y': 0, 'z': 0},
                           'screen': { 'x': 0, 'y': 0, 'scale': 0, 'w':0}
                           },
                    'p2': {'world':  {'z':(n+1) * SEGMENT_LENGTH, 'x':0, 'y':0},
@@ -65,21 +67,27 @@ def render_road(screen, segments, position, player_x):
     for n in xrange(0, DRAW_DISTANCE):
         segment = segments[(base_segment['index']+n)%len(segments)]
         segment_looped = segment['index'] < base_segment['index']
-        
-        project_point(segment['p1'], (player_x*ROAD_WIDTH), CAMERA_HEIGHT, position - (track_length if segment_looped else 0), CAMERA_DEPTH, SCREEN_W, SCREEN_H, ROAD_WIDTH)
-        project_point(segment['p2'], (player_x*ROAD_WIDTH), CAMERA_HEIGHT, position - (track_length if segment_looped else 0), CAMERA_DEPTH, SCREEN_W, SCREEN_H, ROAD_WIDTH)
-        if ((segment['p1']['camera']['z'] <= CAMERA_DEPTH) 
+
+        project_point(segment['p1'], (player_x*ROAD_WIDTH), CAMERA_HEIGHT,
+                        position - (track_length if segment_looped else 0),
+                        CAMERA_DEPTH, SCREEN_W, SCREEN_H, ROAD_WIDTH)
+        project_point(segment['p2'], (player_x*ROAD_WIDTH), CAMERA_HEIGHT,
+                        position - (track_length if segment_looped else 0),
+                        CAMERA_DEPTH, SCREEN_W, SCREEN_H, ROAD_WIDTH)
+        if ((segment['p1']['camera']['z'] <= CAMERA_DEPTH)
             or (segment['p2']['camera']['y'] >= max_y)):
             continue
         render_segment(screen, segment)
         max_y = segment['p2']['screen']['y']
 
 def render_segment(screen, segment):
-    v1 = ((segment['p1']['screen']['x'] - segment['p1']['screen']['w']), segment['p1']['screen']['y'])
+    v1 = ((segment['p1']['screen']['x'] - segment['p1']['screen']['w']),
+            segment['p1']['screen']['y'])
     v2 = ((segment['p1']['screen']['x'] + segment['p1']['screen']['w']), v1[1])
-    v3 = ((segment['p2']['screen']['x'] + segment['p2']['screen']['w']), segment['p2']['screen']['y'])
+    v3 = ((segment['p2']['screen']['x'] + segment['p2']['screen']['w']),
+            segment['p2']['screen']['y'])
     v4 = ((segment['p2']['screen']['x'] - segment['p2']['screen']['w']), v3[1])
-    
+
     r1 = ((v1[0]-(segment['p1']['screen']['w']/6)), (v1[1]))
     r2 = ((v2[0]+(segment['p1']['screen']['w']/6)), (v2[1]))
     r3 = ((v3[0]+(segment['p2']['screen']['w']/6)), (v3[1]))
@@ -94,7 +102,7 @@ def render_segment(screen, segment):
     rumble_point_list = [r1, r2, r3, r4]
     grass_rect = (0, v3[1], SCREEN_W, (v1[1]-v3[1]))
     lanemarker_point_list = [l1, l2, l3, l4]
-    
+
     screen.fill(segment['color']['grass'], grass_rect)
     pygame.draw.polygon(screen, segment['color']['rumble'], rumble_point_list)
     pygame.draw.polygon(screen, segment['color']['road'], road_point_list)
@@ -106,8 +114,13 @@ def project_point(pt_3d, cam_x, cam_y, cam_z, cam_depth, w, h, road_w):
     pt_3d['camera']['z'] = (pt_3d['world']['z'] or 0) - cam_z
 
     pt_3d['screen']['scale'] = cam_depth / (pt_3d['camera']['z'] or 1)
-    pt_3d['screen']['x'] = int(round((w/2) + (pt_3d['screen']['scale'] * pt_3d['camera']['x'] * (w/2))))
-    pt_3d['screen']['y'] = int(round((h/2) - (pt_3d['screen']['scale'] * pt_3d['camera']['y'] * (h/2))))
+
+    pt_3d['screen']['x'] = int(round((w/2) +
+        (pt_3d['screen']['scale'] * pt_3d['camera']['x'] * (w/2))))
+
+    pt_3d['screen']['y'] = int(round((h/2) -
+        (pt_3d['screen']['scale'] * pt_3d['camera']['y'] * (h/2))))
+
     pt_3d['screen']['w'] = int(round(pt_3d['screen']['scale']*road_w*(w/2)))
 
 def handle_events():
@@ -176,21 +189,19 @@ while True:
         steer = .0002 * speed
     elif steer_left:
         steer = -.0002 * speed
-    else: 
+    else:
         steer = 0
-    
+
     position += speed
     player_x += steer
-    
+
     # keep road from running out
     while position >= track_length:
         position -= track_length
     while position < 0:
         position += track_length
-    
+
     Window.blit(background, [0,0])
     render_road(Window, road_segments, position, player_x)
     pygame.display.flip()
     clock.tick(FPS)
-
-
