@@ -1,7 +1,9 @@
 from __future__ import division
 import pygame, sys, os
 import math
+from spritesheet import *
 from pygame.locals import *
+import random
 
 # colors:
 LIGHT = {'road': (143, 143, 143), 'grass': (54, 209, 46),
@@ -19,7 +21,7 @@ CAMERA_DEPTH = .8
 SEGMENT_LENGTH = 140
 RUMBLE_LENGTH = 3
 ROAD_WIDTH = 1800
-MAX_SPEED = 300
+MAX_SPEED = 250
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
@@ -28,7 +30,7 @@ def load_image(name, colorkey=None):
     except pygame.error, message:
         print 'Cannot load image:', name
         raise SystemExit, message
-    image = image.convert()
+    image = image.convert_alpha()
     return image
 
 def initialize_window(w, h):
@@ -123,6 +125,24 @@ def project_point(pt_3d, cam_x, cam_y, cam_z, cam_depth, w, h, road_w):
 
     pt_3d['screen']['w'] = int(round(pt_3d['screen']['scale']*road_w*(w/2)))
 
+def render_player(screen, player_sprites, steer, speed):
+
+    if speed > 200:
+        bounce = random.randrange(-1,1)
+    else:
+        bounce = 0
+
+    player_x = (SCREEN_W / 2) - 100
+    player_y = SCREEN_H - 110 + bounce
+
+    if steer < 0:
+        screen.blit(player_sprites[1], [player_x, player_y])
+    elif steer > 0:
+        screen.blit(player_sprites[2], [player_x, player_y])
+    elif steer == 0:
+        screen.blit(player_sprites[0], [player_x, player_y])
+
+
 def handle_events():
     global gas
     global brake
@@ -159,13 +179,21 @@ clock = pygame.time.Clock()
 #=====================GAME VARIABLES=========================
 #============================================================
 background = load_image("mountains.png")
+player_sprites = sprite_sheet( 80, 41, "data/carsheet.png")
+
+#scale the sprites (there is a much cleaner way to do this)
+scaled_player_sprites = []
+for sprite in player_sprites:
+    scaled_player_sprites.append(pygame.transform.scale(sprite, (200,102)))
+
+
 road_segments = reset_road()
 speed = 0
 gas = False
 brake = False
 steer_left = False
 steer_right = False
-accel = 1
+accel = 1.5
 deccel = 1
 player_x = 0
 position = 0
@@ -203,5 +231,6 @@ while True:
 
     Window.blit(background, [0,0])
     render_road(Window, road_segments, position, player_x)
+    render_player(Window, scaled_player_sprites, steer, speed)
     pygame.display.flip()
     clock.tick(FPS)
