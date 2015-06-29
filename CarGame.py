@@ -2,6 +2,7 @@ from __future__ import division
 import pygame, sys, os
 import math
 from spritesheet import *
+from util import *
 from pygame.locals import *
 import random
 
@@ -10,6 +11,9 @@ LIGHT = {'road': (143, 143, 143), 'grass': (54, 209, 46),
     'rumble': (237, 237,237), 'lanemarker': (143, 143, 143)}
 DARK = {'road': (138, 138, 138), 'grass': (51, 184, 44),
     'rumble': (240, 81, 103), 'lanemarker': (237, 237,237)}
+
+ROAD =  {'LENGTH': { 'NONE': 0, 'SHORT': 25, 'MEDIUM': 50, 'LONG': 100 },
+         'CURVE': { 'NONE': 0, 'EASY': 2, 'MEDIUM': 4, 'HARD': 6 } }
 
 # configuration constants
 SCREEN_W = 640
@@ -38,20 +42,55 @@ def initialize_window(w, h):
     screen = pygame.display.set_mode([w, h])
     return screen
 
+def add_segment(segments, curve):
+    n = len(segments)
+    segment = {
+                'index': n,
+                'p1': { 'world':  {'z':n * SEGMENT_LENGTH, 'x':0, 'y': 0 },
+                        'camera': {'x': 0, 'y': 0, 'z': 0},
+                        'screen': { 'x': 0, 'y': 0, 'scale': 0, 'w':0}
+                      },
+                'p2': { 'world':  {'z':(n+1) * SEGMENT_LENGTH, 'x':0, 'y':0},
+                        'camera': { 'x': 0, 'y':0, 'z': 0},
+                        'screen': { 'x': 0, 'y': 0, 'scale': 0, 'w':0}
+                      },
+                'color': LIGHT if ( math.floor(n / RUMBLE_LENGTH) % 2 == 0) else DARK,
+                'curve': curve
+               }
+    segments.append(segment)
+
+def add_road(enter, hold, leave, curve, segments):
+    for i in range(0, int(enter)):
+        add_segment(segments, ease_in(0, curve, i / enter))
+    for i in range(0, int(hold)):
+        add_segment(segments, curve)
+    for i in range(0, int(leave)):
+        add_segment(segments, ease_in_out(curve, 0, i/leave))
+
+def add_straight(segments, number_of_segments):
+    n = number_of_segments or ROAD['LENGTH']['MEDIUM']
+    add_road(n, n, n, 0, segments)
+
+def add_curve(number_of_segments, curve, segments):
+    n = number_of_segments or ROAD['LENGTH']['MEDIUM']
+    curve = curve or ROAD['CURVE']['MEDIUM']
+    add_road(n, n, n, curve, segments)
+
+def add_s_curve(segments):
+    add_road(ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], (-1*ROAD['CURVE']['EASY']), segments )
+    add_road(ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], ROAD['CURVE']['MEDIUM'], segments )
+    add_road(ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], ROAD['CURVE']['EASY'], segments )
+    add_road(ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], (-1*ROAD['CURVE']['EASY']), segments )
+    add_road(ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], ROAD['LENGTH']['MEDIUM'], (-1*ROAD['CURVE']['MEDIUM']), segments )
+
+
+
 def reset_road():
     segments = []
-    for n in xrange(0,500): # 500 is road length, arbitrary
-        segment = {'index': n,
-                   'p1': {'world':  {'z':n * SEGMENT_LENGTH, 'x':0, 'y': 0 },
-                          'camera': {'x': 0, 'y': 0, 'z': 0},
-                          'screen': { 'x': 0, 'y': 0, 'scale': 0, 'w':0}
-                          },
-                   'p2': {'world':  {'z':(n+1) * SEGMENT_LENGTH, 'x':0, 'y':0},
-                          'camera': { 'x': 0, 'y':0, 'z': 0},
-                          'screen': { 'x': 0, 'y': 0, 'scale': 0, 'w':0}
-                          },
-                   'color': LIGHT if ( math.floor(n / RUMBLE_LENGTH) % 2 == 0) else DARK }
-        segments.append(segment)
+
+    add_straight(segments, ROAD['LENGTH']['SHORT']/4)
+    add_s_curve(segments)
+    add_straight(segments, ROAD['LENGTH']['LONG'])
     return segments
 
 def find_segment(z_value, segments):
@@ -65,17 +104,26 @@ def get_image_line(image, y, x):
 
 def render_road(screen, segments, position, player_x):
     base_segment = find_segment(position, segments)
+    base_percent = percent_remaining(position, SEGMENT_LENGTH)
     max_y = SCREEN_H
+
+    x = 0
+    dx = -1 * (base_segment['curve'] * base_percent)
+
     for n in xrange(0, DRAW_DISTANCE):
         segment = segments[(base_segment['index']+n)%len(segments)]
         segment_looped = segment['index'] < base_segment['index']
 
-        project_point(segment['p1'], (player_x*ROAD_WIDTH), CAMERA_HEIGHT,
+        project_point(segment['p1'], (player_x*ROAD_WIDTH) - x, CAMERA_HEIGHT,
                         position - (track_length if segment_looped else 0),
                         CAMERA_DEPTH, SCREEN_W, SCREEN_H, ROAD_WIDTH)
-        project_point(segment['p2'], (player_x*ROAD_WIDTH), CAMERA_HEIGHT,
+        project_point(segment['p2'], (player_x*ROAD_WIDTH) - x - dx, CAMERA_HEIGHT,
                         position - (track_length if segment_looped else 0),
                         CAMERA_DEPTH, SCREEN_W, SCREEN_H, ROAD_WIDTH)
+
+        x = x + dx
+        dx = dx + segment['curve']
+
         if ((segment['p1']['camera']['z'] <= CAMERA_DEPTH)
             or (segment['p2']['camera']['y'] >= max_y)):
             continue
@@ -199,6 +247,7 @@ player_x = 0
 position = 0
 steer = 0
 track_length = len(road_segments) * SEGMENT_LENGTH
+cent_force = .3
 
 #============================================================
 #=====================GAME LOOP==============================
